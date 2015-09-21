@@ -46,15 +46,12 @@ func NewRoutingPublisher(route routing.IpfsRouting) Publisher {
 func (p *ipnsPublisher) Publish(ctx context.Context, k ci.PrivKey, value path.Path) error {
 	log.Debugf("Publish %s", value)
 
-	pubkey := k.GetPublic()
-	pkbytes, err := pubkey.Bytes()
+	pkbytes, err := k.GetPublic().Bytes()
 	if err != nil {
 		return err
 	}
 
-	nameb := u.Hash(pkbytes)
-	namekey := key.Key("/pk/" + string(nameb))
-	ipnskey := key.Key("/ipns/" + string(nameb))
+	namekey, ipnskey := IpnsKeysForID(pkbytes)
 
 	// get previous records sequence number, and add one to it
 	var seqnum uint64
@@ -71,7 +68,7 @@ func (p *ipnsPublisher) Publish(ctx context.Context, k ci.PrivKey, value path.Pa
 		return err
 	}
 
-	data, err := createRoutingEntryData(k, value, seqnum)
+	data, err := CreateRoutingEntryData(k, value, seqnum)
 	if err != nil {
 		return err
 	}
@@ -96,7 +93,7 @@ func (p *ipnsPublisher) Publish(ctx context.Context, k ci.PrivKey, value path.Pa
 	return nil
 }
 
-func createRoutingEntryData(pk ci.PrivKey, val path.Path, seq uint64) ([]byte, error) {
+func CreateRoutingEntryData(pk ci.PrivKey, val path.Path, seq uint64) ([]byte, error) {
 	entry := new(pb.IpnsEntry)
 
 	entry.Value = []byte(val)
@@ -207,4 +204,12 @@ func InitializeKeyspace(ctx context.Context, ds dag.DAGService, pub Publisher, p
 	}
 
 	return nil
+}
+
+func IpnsKeysForID(pkbytes []byte) (name, ipns key.Key) {
+	nameb := u.Hash(pkbytes)
+	namekey := key.Key("/pk/" + string(nameb))
+	ipnskey := key.Key("/ipns/" + string(nameb))
+
+	return namekey, ipnskey
 }
